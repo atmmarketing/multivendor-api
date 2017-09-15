@@ -1,2 +1,3 @@
-# sendowl-api
-PHP interface to SendOwl API
+# multivendor-api
+PHP interface for Webkul Multivendor for Shopify API
+
