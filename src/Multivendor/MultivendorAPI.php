@@ -38,17 +38,24 @@ class MultivendorAPI {
 	 * @param string $secret
 	 * @param array|null $options
 	 */
-	public function __construct( $key='', $secret='', $options = [] ) {
-		$this->key             = $key;
-		$this->secret          = $secret;
+	public function __construct( $accessToken='', $options = [] ) {
+		$this->token             = $accessToken;
 		$this->options         = $options;
 		$this->options['auth'] = array( $this->get_key(), $this->get_secret() );
 		$this->Client = new Client([
-			'auth' => [$this->get_key(), $this->get_secret()] ,
+			'auth' => ['Authorize', 'Bearer ' . $this->get_token()] ,
 			'headers' => ['Accept' => 'application/json']
 		]);
 	}
 
+	/**
+	 * Retrieve API Access Token
+	 *
+	 * @return string
+	 */
+	public function get_token() {
+		return $this->token;
+	}
 	/**
 	 * Retrieve API Key
 	 *
@@ -126,7 +133,7 @@ class MultivendorAPI {
 	public function get_product( $product_id = 0 ) {
 		$headers  = [ 'Accept' => 'application/json' ];
 		//$response = Requests::get( $this->products_endpoint .'/' . $product_id, $headers, $this->options );
-		$response = $this->Client->request('GET', $this->products_endpoint .'/' . $product_id );
+		$response = $this->Client->request('GET', $this->api_endpoint .'/id/' . $product_id . '.json');
 		
 		//print_r($response);
 		
