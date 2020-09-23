@@ -4,26 +4,39 @@ namespace Multivendor;
 
 use Requests;
 use GuzzleHttp\Client;
-
+use GuzzleHttp\HandlerStack;
+use kamermans\OAuth2\GrantType\ClientCredentials;
+use kamermans\OAuth2\GrantType\RefreshToken;
+use kamermans\OAuth2\OAuth2Subscriber;
+use kamermans\OAuth2\OAuth2Middleware;
 /**
  * Class MultivendorAPI
  * @package AtmMarketing\MultivendorAPI
  */
 class MultivendorAPI {
-
+//https://shopify.webkul.com/shopify-marketplace-api/web/
 	private $api_endpoint = 'https://shopify.webkul.com/shopify-marketplace-api/web';
 //	private $products_endpoint = 'https://www.sendowl.com/api/v1/products';
-	const PRODUCT_TYPE_DIGITAL = 'digital';
+//	const PRODUCT_TYPE_DIGITAL = 'digital';
 	
 	/**
 	 * @var string
 	 */
-	private $key;
+	private $access_token;
 
 	/**
 	 * @var string
 	 */
-	private $secret;
+	private $refresh_token;
+
+	/**
+	 * @var string
+	 */
+	private $client_id;
+	/**
+	 * @var string
+	 */
+	private $client_secret;
 	/**
 	 * @var array|null
 	 */
@@ -38,13 +51,38 @@ class MultivendorAPI {
 	 * @param string $secret
 	 * @param array|null $options
 	 */
-	public function __construct( $accessToken='', $options = [] ) {
-		$this->token             = $accessToken;
-		$this->options         = $options;
-		$this->options['auth'] = array( $this->get_key(), $this->get_secret() );
+	public function __construct( $access_token='', $refresh_token='', $client_id='', $client_secret='',$options = [] ) {
+		$this->access_token		= $access_token;
+		$this->refresh_token	= $refresh_token;
+		$this->client_id		= $client_id;
+		$this->client_secret	= $client_secret;
+ 		$this->options         = $options;
+// 		$this->options['auth'] = array( $this->get_key(), $this->get_secret() );
+		
+		echo 'access_token = ',$this->access_token, ' refresh_token = ', $this->refresh_token, ' client_id = ', $this->client_id, 'client_secret = ', $this->client_secret;
+		
+		
+		$reauth_client = new Client([
+		    // URL for access_token request
+		    'base_uri' => $this->api_endpoint . '/new/token',
+		]);
+		$reauth_config = [
+		    "client_id" => $this->client_id,
+		    "client_secret" => $this->client_secret,
+		    "refresh_token" => $this->refresh_token
+		    
+		];
+		$grant_type = new RefreshToken($reauth_client, $reauth_config);
+		$oauth = new OAuth2Middleware($grant_type);
+
+		$stack = HandlerStack::create();
+		$stack->push($oauth);
+		
+		
+		
 		$this->Client = new Client([
-			'auth' => ['Authorize', 'Bearer ' . $this->get_token()] ,
-			'headers' => ['Accept' => 'application/json']
+			'auth' => 'oauth' ,
+			'handler' => $stack
 		]);
 	}
 
@@ -53,16 +91,24 @@ class MultivendorAPI {
 	 *
 	 * @return string
 	 */
-	public function get_token() {
-		return $this->token;
+	public function get_access_token() {
+		return $this->access_token;
+	}
+	/**
+	 * Retrieve API Access Token
+	 *
+	 * @return string
+	 */
+	public function get_refresh_token() {
+		return $this->refresh_token;
 	}
 	/**
 	 * Retrieve API Key
 	 *
 	 * @return string
 	 */
-	public function get_key() {
-		return $this->key;
+	public function get_client_id() {
+		return $this->client_id;
 	}
 
 	/**
@@ -70,10 +116,26 @@ class MultivendorAPI {
 	 *
 	 * @return string
 	 */
-	public function get_secret() {
-		return $this->secret;
+	public function get_client_secret() {
+		return $this->client_secret;
 	}
+	/*
+	
+	$params[''] () : 
+	*/
+	function refresh_access_token ($params = array()){
+		extract($params);
 
+
+
+		
+		$RefreshClient = new Client([
+			'auth' => ['Authorization', 'Bearer ' . $this->refresh_token] 
+		]);
+		
+		$response = $RefreshClient->request('GET', $this->api_endpoint .'/multivendor/product/count.json');
+		print_r($response);
+	}
 	/**
 	 * Create a new product
 	 *
@@ -120,6 +182,7 @@ class MultivendorAPI {
 			return json_decode( $response->body, true );
 		}
 		throw new MultivendorAPIException( $response->body, $response->status_code );
+		
 	}
 
 	/**
@@ -133,7 +196,28 @@ class MultivendorAPI {
 	public function get_product( $product_id = 0 ) {
 		$headers  = [ 'Accept' => 'application/json' ];
 		//$response = Requests::get( $this->products_endpoint .'/' . $product_id, $headers, $this->options );
-		$response = $this->Client->request('GET', $this->api_endpoint .'/id/' . $product_id . '.json');
+		$response = $this->Client->request('GET', $this->api_endpoint .'/multivendor/product/id/' . $product_id . '.json');
+		
+		//print_r($response);
+		
+		
+		return json_decode( $response->getBody(), true );
+		
+		throw new MultivendorAPIException( $response->body, $response->getStatusCode() );
+	}
+
+	/**
+	 * Retrieve a product
+	 *
+	 * @param int $product_id
+	 *
+	 * @return array
+	 * @throws MultivendorAPIException
+	 */
+	public function get_product_count( $product_id = 0 ) {
+		$headers  = [ 'Accept' => 'application/json' ];
+		//$response = Requests::get( $this->products_endpoint .'/' . $product_id, $headers, $this->options );
+		$response = $this->Client->request('GET', $this->api_endpoint .'/multivendor/product/count.json');
 		
 		//print_r($response);
 		
@@ -142,6 +226,7 @@ class MultivendorAPI {
 		
 		throw new MultivendorAPIException( $response->body, $response->status_code );
 	}
+
 
 	/**
 	 * Deletes a product
